@@ -16,16 +16,20 @@ app.use(express.json());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: "*", // Allow all origins (change in prod)
-    methods: ["GET", "POST"]
-  }
+    origin: [
+      "http://localhost:5173",
+      "https://rapid-quest-whatsapp-frontend-4gd6.vercel.app",
+    ],
+    methods: ["GET", "POST"],
+  },
 });
 
 // Store io in app locals so routes can access it
 app.locals.io = io;
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGO_URI)
+mongoose
+  .connect(process.env.MONGO_URI)
   .then(() => console.log("✅ Connected to MongoDB"))
   .catch((err) => console.error("❌ MongoDB connection error:", err));
 
@@ -35,10 +39,20 @@ app.use("/api/messages", messagesRoute);
 // Socket.IO Connection
 io.on("connection", (socket) => {
   console.log(`🔌 Client connected: ${socket.id}`);
-  socket.on("disconnect", () => console.log(`❌ Client disconnected: ${socket.id}`));
+
+  socket.on("disconnect", () => {
+    console.log(`❌ Client disconnected: ${socket.id}`);
+  });
 });
 
-// Start Server
+// Broadcast when new message is saved
+io.on("connection", (socket) => {
+  socket.on("send_message", (msg) => {
+    // broadcast to everyone
+    socket.broadcast.emit("new_message", msg);
+  });
+});
+
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
